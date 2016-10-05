@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.Cursor?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ButtonBar?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.effect.Blend?>
+<?import javafx.scene.layout.AnchorPane?>
+
+<AnchorPane fx:id="parentWindow" xmlns="http://javafx.com/javafx/8.0.60" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.csulb.edu.set.ui.view.SearchOverviewController">
+   <children>
+      <MenuBar>
+        <menus>
+          <Menu mnemonicParsing="false" text="File">
+            <items>
+              <MenuItem mnemonicParsing="false" text="Close" />
+            </items>
+          </Menu>
+          <Menu mnemonicParsing="false" text="Options">
+            <items>
+              <MenuItem mnemonicParsing="false" onAction="#indexNewDirectory" text="Index Directory" />
+            </items>
+          </Menu>
+          <Menu mnemonicParsing="false" text="Help">
+            <items>
+              <MenuItem mnemonicParsing="false" text="About" />
+            </items>
+          </Menu>
+        </menus>
+         <padding>
+            <Insets bottom="3.0" />
+         </padding>
+      </MenuBar>
+      <AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="430.0" prefWidth="600.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="27.0">
+         <children>
+            <SplitPane dividerPositions="0.30267558528428096" layoutX="8.0" layoutY="14.0" prefHeight="400.0" prefWidth="600.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+              <items>
+                <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="428.0" prefWidth="226.0">
+                     <children>
+                        <SplitPane dividerPositions="0.2601010101010101" maxHeight="-Infinity" maxWidth="-Infinity" minWidth="100.0" orientation="VERTICAL" prefHeight="398.0" prefWidth="100.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                          <items>
+                            <AnchorPane maxHeight="-Infinity" minHeight="50.0" minWidth="0.0" prefHeight="70.0" prefWidth="100.0">
+                                 <children>
+                                    <TextField fx:id="userQuery" cache="true" layoutX="12.0" layoutY="14.0" promptText="Enter Your Query Here" AnchorPane.leftAnchor="5.0" AnchorPane.rightAnchor="5.0" AnchorPane.topAnchor="5.0">
+                                       <cursor>
+                                          <Cursor fx:constant="TEXT" />
+                                       </cursor>
+                                       <effect>
+                                          <Blend />
+                                       </effect></TextField>
+                                    <ButtonBar buttonMinWidth="45.0" layoutY="33.0" prefHeight="36.0" prefWidth="176.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="33.0">
+                                      <buttons>
+                                        <Button fx:id="search" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onMouseClicked="#searchCorpus" prefHeight="24.0" prefWidth="12.0" text="Search" />
+                                          <Button fx:id="findStem" mnemonicParsing="false" onAction="#findStem" text="Find Stem" />
+                                          <Button fx:id="printVocab" mnemonicParsing="false" onAction="#printVocabulary" onMouseClicked="#printVocabulary" prefHeight="14.0" prefWidth="161.0" text="Print Vocabulary" />
+                                      </buttons>
+                                       <padding>
+                                          <Insets left="-5.0" />
+                                       </padding>
+                                    </ButtonBar>
+                                 </children>
+                              </AnchorPane>
+                            <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="250.0" prefWidth="173.0">
+                                 <children>
+                                    <ListView fx:id="listView" layoutX="14.0" prefHeight="290.0" prefWidth="336.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                                 </children>
+                              </AnchorPane>
+                          </items>
+                        </SplitPane>
+                     </children>
+                  </AnchorPane>
+                <AnchorPane minHeight="-Infinity" minWidth="-Infinity" prefHeight="160.0" prefWidth="100.0">
+                     <children>
+                        <TextArea fx:id="jsonBodyContents" editable="false" layoutX="14.0" layoutY="14.0" prefHeight="200.0" prefWidth="200.0" wrapText="true" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                     </children>
+                  </AnchorPane>
+              </items>
+            </SplitPane>
+         </children>
+      </AnchorPane>
+      <Label fx:id="numberOfDocsIndexed" alignment="BOTTOM_CENTER" layoutX="455.0" layoutY="6.0" AnchorPane.rightAnchor="0.0" />
+      <Label fx:id="corpusVocabSize" layoutX="499.0" layoutY="6.0" AnchorPane.rightAnchor="500.0" />
+      <Label fx:id="numberOfDocsMatchingQuery" layoutX="371.0" layoutY="6.0" AnchorPane.rightAnchor="200.0" />
+   </children>
+</AnchorPane>
