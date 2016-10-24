@@ -12,7 +12,6 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.csulb.edu.set.indexes.Index;
 import com.csulb.edu.set.indexes.SimpleTokenStream;
 import com.csulb.edu.set.indexes.pii.PositionalInvertedIndex;
 import com.csulb.edu.set.indexes.pii.PositionalPosting;
@@ -104,12 +103,12 @@ public class IndexWriter {
 				byte[] vPositionBytes = ByteBuffer.allocate(8).putLong(vocabPositions[vocabI]).array();
 				
 				// Printing some info for understanding
-				System.out.print("position of the first character of the term : " + s + " : is = " + vocabPositions[vocabI] + ". Byte Representation : ");
+				/*System.out.print("position of the first character of the term : " + s + " : is = " + vocabPositions[vocabI] + ". Byte Representation : ");
 				for (int i = 0; i < vPositionBytes.length; i++) {
 					System.out.print(vPositionBytes[i]);
 				}				
 				System.out.print(" ::: number of bytes : " + vPositionBytes.length);
-				System.out.println();
+				System.out.println();*/
 				
 				// Writes the 8 byte representation of the position of the first character of the word 's' in the vocabTable
 				vocabTable.write(vPositionBytes, 0, vPositionBytes.length);
@@ -117,10 +116,11 @@ public class IndexWriter {
 				byte[] pPositionBytes = ByteBuffer.allocate(8).putLong(postingsFile.getChannel().position()).array();
 				
 				// The address from where the postings list of this term starts in postings.bin file				
-				System.out.print("The address in postings.bin from where the postings of the term " + s + "starts : ");
+				/*System.out.print("The address in postings.bin from where the postings of the term " + s + "starts : ");
 				for (int i = 0; i < pPositionBytes.length; i++) {
 					System.out.print(pPositionBytes[i]);
-				}
+				}*/
+				System.out.println("The address in postings.bin from where the postings of the term " + s + " starts : " + postingsFile.getChannel().position());
 				vocabTable.write(pPositionBytes, 0, pPositionBytes.length);
 
 				/**
@@ -152,6 +152,8 @@ public class IndexWriter {
 					
 					int docId = positionalPosting.getDocumentId();
 					
+					System.out.println("Document Id : " + docId + " postings hashcode : " + positionalPosting.getPositions().toString() + " positions size : " + positionalPosting.getPositions().size());
+					
 					// encode a gap, not a docID
 					byte[] docIdBytes = ByteBuffer.allocate(4).putInt(docId - lastDocId).array(); 
 					postingsFile.write(docIdBytes, 0, docIdBytes.length);
@@ -161,7 +163,17 @@ public class IndexWriter {
 					 * Get the list of positions where this term occurs in the document and then write all the positions. 
 					 * No need to encode positions as gaps. Even in the worst case scenario, a document will not contain the same word 
 					 * repeated (Integer.MAX_VALUE) number of times
-					 */					
+					 */	
+					
+					// Get the term frequency i.e. the number of times this particular terms occurs in this docId
+					int termFrequency = positionalPosting.getPositions().size();
+					
+					// Convert the integer representation of the termFrequency into its corresponding byteFrequency
+					byte[] termFreqBytes = ByteBuffer.allocate(4).putInt(termFrequency).array(); 
+					
+					// Write the byte representation of the term frequency into the file
+					postingsFile.write(termFreqBytes, 0, termFreqBytes.length);
+					
 					for (Integer pos : positionalPosting.getPositions()) {
 						byte[] posBytes = ByteBuffer.allocate(4).putInt(pos).array(); 
 						postingsFile.write(posBytes, 0, posBytes.length);

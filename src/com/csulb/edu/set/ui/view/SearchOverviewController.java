@@ -21,6 +21,7 @@ import com.csulb.edu.set.MainApp;
 import com.csulb.edu.set.exception.InvalidQueryException;
 import com.csulb.edu.set.indexes.TokenStream;
 import com.csulb.edu.set.indexes.biword.BiWordIndex;
+import com.csulb.edu.set.indexes.kgram.KGramIndex;
 import com.csulb.edu.set.indexes.pii.PositionalInvertedIndex;
 import com.csulb.edu.set.query.QueryRunner;
 import com.csulb.edu.set.utils.PorterStemmer;
@@ -96,9 +97,14 @@ public class SearchOverviewController {
 	@FXML
 	private TextArea jsonBodyContents;
 
+	// Declare an object of PositionalInvertedIndex
 	private PositionalInvertedIndex pInvertedIndex;
 
+	// Declare an object of biWordIndex
 	private BiWordIndex biWordIndex;
+	
+	//Declare an object of KGramIndex
+	private KGramIndex kGramIndex;
 	
 	private List<String> fileNames = new ArrayList<String>();
 
@@ -335,6 +341,7 @@ public class SearchOverviewController {
 			
 			pInvertedIndex = new PositionalInvertedIndex();
 			biWordIndex = new BiWordIndex();
+			kGramIndex = new KGramIndex();
 			
 			Path currentWorkingPath = Paths.get(dirPath).toAbsolutePath();
 
@@ -376,6 +383,9 @@ public class SearchOverviewController {
 						while (tokenStream.hasNextToken()) {
 
 							String token = Utils.processWord(tokenStream.nextToken());
+							
+							// Token sent to be added in kGramIndex
+							kGramIndex.processToken(token);
 
 							// Check if the token is hyphenized
 							// Then index the terms = # of hyphens + 1
@@ -392,6 +402,7 @@ public class SearchOverviewController {
 								biWordIndex.addTerm(PorterStemmer.processToken(Utils.removeHyphens(prevToken))
 										+ PorterStemmer.processToken(Utils.removeHyphens(token)), mDocumentID);
 							}
+							
 							prevToken = token;
 							position++;
 						}
@@ -420,6 +431,8 @@ public class SearchOverviewController {
 	@FXML
 	private void initialize() {
 
+		// Attach an event listener to the list items which handles the click on the list items that contains the document names 
+		// as part of the search query result
 		listView.addEventFilter(MouseEvent.MOUSE_CLICKED, event -> {
 			if (event.getClickCount() == 2) {
 				SelectionModel<String> selectionModel = listView.getSelectionModel();
