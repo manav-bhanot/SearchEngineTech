@@ -4,8 +4,6 @@ import java.util.HashMap;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import com.csulb.edu.set.utils.Utils;
-
 /**
  * This class maps the generated 1,2,3 grams of the tokens to the corresponding tokens.
  */
@@ -18,15 +16,12 @@ public class KGramIndex extends HashMap<String, SortedSet<String>> {
 
 	public void processToken(String word) {
 		
-		// Do initial processing on this word which removes the special characters from the beginning and the end of the string
-		word = Utils.processWord(word);
-		
 		/**
-		 * Check if the length of the token is greater than 2
+		 * Check if the length of the token >= 2
 		 * We create all the 1-,2- and 3- grams if the length of the token >= 2, otherwise we only create 1-gram
 		 */
 		if (word.length() > 1) {
-			// Append $ to mark the beginning and end of the string
+			// Append $ to mark to the beginning and end of the string
 			String kGramString = '$' + word + '$';
 			
 			// Put the word in all the corresponding k-grams

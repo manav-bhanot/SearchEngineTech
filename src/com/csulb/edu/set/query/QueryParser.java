@@ -72,25 +72,25 @@ public class QueryParser {
 					if (literalStrings[i].endsWith("\"")) {
 						// phrase with only one token
 						queryLiteral.getTokens()
-								.add(Utils.processWord(literalStrings[i].substring(1, literalStrings[i].length() - 1)));
+								.add(Utils.processWord(literalStrings[i].substring(1, literalStrings[i].length() - 1), true));
 					} else {
 						// phrase with more than one tokens
-						queryLiteral.getTokens().add(Utils.processWord(literalStrings[i].substring(1)));
+						queryLiteral.getTokens().add(Utils.processWord(literalStrings[i].substring(1), true));
 						i++;
 
 						while (!literalStrings[i].endsWith("\"")) {
-							queryLiteral.getTokens().add(Utils.processWord(literalStrings[i]));
+							queryLiteral.getTokens().add(Utils.processWord(literalStrings[i], true));
 							i++;
 						}
 
 						// Adding the last token of the phrase to the list of tokens
 						queryLiteral.getTokens()
-								.add(Utils.processWord(literalStrings[i].substring(0, literalStrings[i].length() - 1)));
+								.add(Utils.processWord(literalStrings[i].substring(0, literalStrings[i].length() - 1), true));
 					}
 					i++;
 				} else {
 					queryLiteral.setPhrase(false);
-					queryLiteral.getTokens().add(Utils.processWord(literalStrings[i]));
+					queryLiteral.getTokens().add(Utils.processWord(literalStrings[i], true));
 					i++;
 				}
 

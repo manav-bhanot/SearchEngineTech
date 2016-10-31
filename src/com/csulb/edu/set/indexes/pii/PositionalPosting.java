@@ -27,6 +27,11 @@ public class PositionalPosting {
 		this.positions = positions;
 	}
 
+	@Override
+	public String toString() {
+		return "PositionalPosting [documentId=" + documentId + ", positions=" + positions + "]";
+	}
+
 	public int getDocumentId() {
 		return this.documentId;
 	}

@@ -27,10 +27,10 @@ import com.google.gson.stream.JsonReader;
 public class Utils {
 
 	// Regex to remove the special chars from the beginning of the word
-	private static final String specialCharsRegexStart = "^\\W*";
+	private static final String specialCharsRegexStart = "^[^\\w*]*";
 	
 	// Regex to remove the special chars from the end of the word
-	private static final String specialCharsRegexEnd = "\\W*$";
+	private static final String specialCharsRegexEnd = "[^\\w*]*$";
 	
 	// Created a json parser for parsing json files
 	private static final JsonParser jsonParser = new JsonParser();	
@@ -38,13 +38,14 @@ public class Utils {
 	//private static final Gson gson = new GsonBuilder().create();
 
 	/**
-	 * Processes the word. Removes all the special characters at the beginnig and at the end of the word
+	 * Processes the word. Removes all the special characters at the beginning and at the end of the word
 	 * @param token
 	 * @return
 	 */
-	public static String processWord(String word) {
-		return word.trim().replaceAll(specialCharsRegexStart, "").replaceAll(specialCharsRegexEnd, "").replaceAll("'", "")
-				.toLowerCase();
+	public static String processWord(String word, boolean removeHyphens) {
+		word = word.trim().replaceAll(specialCharsRegexStart, "").replaceAll(specialCharsRegexEnd, "").replaceAll("'", "");
+		if (removeHyphens) word.replaceAll("-", "");
+		return word.toLowerCase();
 	}
 
 	/**
@@ -55,6 +56,7 @@ public class Utils {
 	public static String removeHyphens(String word) {
 		return word.replaceAll("-", "").toLowerCase();
 	}
+
 	
 	/**
 	 * Processes the json files and creates a token stream on the body element's value of the json and return it to the caller

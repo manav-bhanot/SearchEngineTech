@@ -11,18 +11,25 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import com.csulb.edu.set.MainApp;
 import com.csulb.edu.set.exception.InvalidQueryException;
+import com.csulb.edu.set.indexes.Index;
 import com.csulb.edu.set.indexes.TokenStream;
 import com.csulb.edu.set.indexes.biword.BiWordIndex;
+import com.csulb.edu.set.indexes.diskindex.DiskIndexWriter;
+import com.csulb.edu.set.indexes.diskindex.DiskInvertedIndex;
 import com.csulb.edu.set.indexes.kgram.KGramIndex;
 import com.csulb.edu.set.indexes.pii.PositionalInvertedIndex;
+import com.csulb.edu.set.indexes.pii.PositionalPosting;
 import com.csulb.edu.set.query.QueryRunner;
 import com.csulb.edu.set.utils.PorterStemmer;
 import com.csulb.edu.set.utils.Utils;
@@ -98,13 +105,25 @@ public class SearchOverviewController {
 	private TextArea jsonBodyContents;
 
 	// Declare an object of PositionalInvertedIndex
-	private PositionalInvertedIndex pInvertedIndex;
+	private Index<PositionalPosting> pInvertedIndex;
 
 	// Declare an object of biWordIndex
-	private BiWordIndex biWordIndex;
+	private Index<Integer> biWordIndex;
 	
 	//Declare an object of KGramIndex
 	private KGramIndex kGramIndex;
+	
+	// Declare an object of Disk Inverted Index
+	// private Index<PositionalPosting> diskInvertedIndex;
+	
+	// Declare a reference of the parent class of all the indexes
+	private Index<PositionalPosting> invertedIndex;
+	
+	// Create a list of double value to store the document weights
+	private List<Double> docWeights;
+	
+	// Flag to choose from DiskInvertedIndex or InMemoryIndex
+	boolean useDiskIndex = true;
 	
 	private List<String> fileNames = new ArrayList<String>();
 
@@ -181,22 +200,62 @@ public class SearchOverviewController {
 					this.vocab.clear();
 					this.documents.clear();
 					
-					// Begin creating the index
-					createIndexes(dir);
+					/**
+					 * TODO
+					 * Checks if we already have a disk index created.
+					 * If yes then tell the user that a disk index was already created alongwith the timestamp
+					 * and ask him whether he wants to re-create a new index or proceed with the existing index.
+					 */
+					boolean isVocabFilePresent = false;
+					boolean isVocabTablePresent = false;
+					boolean isPostingsFilePresent = false;
 					
-					this.numberOfDocsIndexed.setText("Total documents indexed = " + fileNames.size());
+					Path vocab = Paths.get(this.dirPath + "\\vocab.bin");
+					Path postings = Paths.get(this.dirPath + "\\postings.bin");
+					Path vocabTable = Paths.get(this.dirPath + "\\vocabTable.bin");
+					
+					if (vocab.toFile().exists() && !vocab.toFile().isDirectory() && postings.toFile().exists()
+							&& !postings.toFile().isDirectory() && vocabTable.toFile().exists()
+							&& !vocabTable.toFile().isDirectory()) {
+						
+						BasicFileAttributes attributes = null;
+						try {
+							attributes = Files.readAttributes(postings, BasicFileAttributes.class);
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+						// Get the creation time of this file
+						FileTime creationTime = attributes.lastModifiedTime();
+						
+						// Prompt the user here if he want to select the disk index or the in memory index
+						Alert confirmationBox = showAlertBox("The Disk index for this corpus was already created at " + creationTime + " Do you want to "
+								+ "update the existing disk index ? ", AlertType.CONFIRMATION);
+						Optional<ButtonType> isUserOk = confirmationBox.showAndWait();
+						
+						if (isUserOk.get() == ButtonType.CANCEL) {
+							isVocabFilePresent = true;
+							isVocabTablePresent = true;
+							isPostingsFilePresent = true;
+						}					
+					} 
+					if (!isVocabFilePresent && !isPostingsFilePresent && !isVocabTablePresent) {
+						// go ahead and create the new index
+						// Begin creating the index
+						createIndexes(this.dirPath);
+						this.numberOfDocsIndexed.setText("Total documents indexed = " + fileNames.size());
+						// Displaying a message about the total number of words in the vocabulary
+						this.vocab.clear();
+						this.vocab.addAll(Arrays.asList(pInvertedIndex.getDictionary()));
+						this.corpusVocabSize.setText("Size of Corpus Vocabulary is : " + this.vocab.size());
+					}
 					
 					// Show the search app window 
 					if (!this.mainApp.getPrimaryStage().isShowing()) {
 						this.mainApp.getPrimaryStage().show();
 					}
-					
-					// Displaying a message about the total number of words in the vocabulary
-					this.vocab.clear();
-					this.vocab.addAll(Arrays.asList(pInvertedIndex.getDictionary()));
-					this.corpusVocabSize.setText("Size of Corpus Vocabulary is : " + this.vocab.size());
 				} else {
-					showAlertBox("Invalid Directory path! Please enter a valid directory", AlertType.ERROR);
+					Alert invalidDirectoryPathAlert = showAlertBox("Invalid Directory path! Please enter a valid directory", AlertType.ERROR);
+					invalidDirectoryPathAlert.showAndWait();
 				}
 			});
 		}
@@ -207,12 +266,12 @@ public class SearchOverviewController {
 	 * Displays an error dialog box to indicate the user that the directory path
 	 * entered is invalid
 	 */
-	private void showAlertBox(String msg, AlertType type) {
+	private Alert showAlertBox(String msg, AlertType type) {
 		Alert alert = new Alert(type);
 		alert.setTitle(null);
 		alert.setHeaderText(null);
 		alert.setContentText(msg);
-		alert.showAndWait();
+		return alert;
 	}
 
 	@FXML
@@ -255,12 +314,20 @@ public class SearchOverviewController {
 			// store it
 			// in documentsList variable
 			System.out.println("Searching for " + queryString);
+			
+			// Instantiates an object based on whether the user want to use DiskIndex or InMemoryIndex
+			if (useDiskIndex) {				
+				this.invertedIndex = new DiskInvertedIndex(this.dirPath);
+//				this.kGramIndex = new KGramIndex(this.dirPath);
+			} else  {
+				this.invertedIndex = this.pInvertedIndex;
+			}
 
-			if (pInvertedIndex != null && biWordIndex != null) {
+			if (this.invertedIndex != null && this.biWordIndex != null) {
 				if (!documents.isEmpty())
 					documents.clear();
 				try {
-					List<Integer> docIds = QueryRunner.runQueries(queryString, pInvertedIndex, biWordIndex);					
+					List<Integer> docIds = QueryRunner.runQueries(queryString, invertedIndex, biWordIndex, kGramIndex);					
 					numberOfDocsMatchingQuery.setText("Total documents found for this query = "+docIds.size());
 					if (!this.numberOfDocsMatchingQuery.isVisible()) this.numberOfDocsMatchingQuery.setVisible(true);
 					
@@ -279,6 +346,13 @@ public class SearchOverviewController {
 				}
 				listView.setItems(documents);
 				listView.scrollTo(0);
+			} else {
+				/**
+				 * TODO
+				 * 
+				 * The invertedIndex or biwordIndex could probably be null because the user choose to query the corpus 
+				 * with the disk index and hence the applcation never creates an in-memory index
+				 */
 			}
 		}
 	}
@@ -324,7 +398,22 @@ public class SearchOverviewController {
 		userQuery.setEditable(true);
 		userQuery.requestFocus();
 	}
+	
+	/**
+	 * Saving the In-Memory index on disk
+	 */
+	private void saveIndexesOnDisk() {
+		// TODO Auto-generated method stub
+		
+		// Persist the PositionalInvertedIndex on disk
+		DiskIndexWriter.buildIndexForDirectory(this.dirPath, this.pInvertedIndex);
+		DiskIndexWriter.storeKGramIndexOnDisk(this.dirPath, this.kGramIndex);
+	}
 
+	/**
+	 * Create the in-memory inverted index of the corpus
+	 * @param dirPath
+	 */
 	public void createIndexes(String dirPath) {
 		System.out.println("In Controller :: Begin creation of index");
 		// Begin indexing of all the files present at the directory location
@@ -339,9 +428,9 @@ public class SearchOverviewController {
 			this.vocab.clear();
 			this.numberOfDocsMatchingQuery.setVisible(false);
 			
-			pInvertedIndex = new PositionalInvertedIndex();
-			biWordIndex = new BiWordIndex();
-			kGramIndex = new KGramIndex();
+			this.pInvertedIndex = new PositionalInvertedIndex();
+			this.biWordIndex = new BiWordIndex();
+			this.kGramIndex = new KGramIndex();
 			
 			Path currentWorkingPath = Paths.get(dirPath).toAbsolutePath();
 
@@ -376,13 +465,17 @@ public class SearchOverviewController {
 						} catch (FileNotFoundException e) {
 							e.printStackTrace();
 						}
+						
+						// Create a hashmap to count term frequency
+						Map<String, Integer> termFreq = new HashMap<String, Integer>();
+						
 						TokenStream tokenStream = Utils.getTokenStreams(in);
 						
 						int position = 0;
 						String prevToken = null;
 						while (tokenStream.hasNextToken()) {
 
-							String token = Utils.processWord(tokenStream.nextToken());
+							String token = Utils.processWord(tokenStream.nextToken().trim(), false);
 							
 							// Token sent to be added in kGramIndex
 							kGramIndex.processToken(token);
@@ -391,22 +484,36 @@ public class SearchOverviewController {
 							// Then index the terms = # of hyphens + 1
 							if (token.contains("-")) {
 								for (String term : token.split("-")) {
-									pInvertedIndex.addTerm(PorterStemmer.processToken(Utils.processWord(term)), position, mDocumentID);
+									((PositionalInvertedIndex)pInvertedIndex).addTerm(PorterStemmer.processToken(Utils.processWord(term, false)), position, mDocumentID);
 									position++;
 								}
 								position--;
 							}
-							pInvertedIndex.addTerm(PorterStemmer.processToken(Utils.removeHyphens(token)), position,
+							((PositionalInvertedIndex)pInvertedIndex).addTerm(PorterStemmer.processToken(Utils.removeHyphens(token)), position,
 									mDocumentID);
 							if (prevToken != null) {
-								biWordIndex.addTerm(PorterStemmer.processToken(Utils.removeHyphens(prevToken))
+								((BiWordIndex)biWordIndex).addTerm(PorterStemmer.processToken(Utils.removeHyphens(prevToken))
 										+ PorterStemmer.processToken(Utils.removeHyphens(token)), mDocumentID);
 							}
 							
+							// Add to the termFrequency
+							/*if (termFreq.containsKey(PorterStemmer.processToken(token))) {
+								//int freq = termFreq.get(PorterStemmer.processToken(token)) + 1;
+								termFreq.put(PorterStemmer.processToken(token), termFreq.get(PorterStemmer.processToken(token)) + 1);
+							} else {
+								termFreq.put(PorterStemmer.processToken(token), 1);
+							}		*/					
 							prevToken = token;
 							position++;
 						}
 						
+						// Calculate Ld for this document and store it in the docWeights arraylist
+						/*double sum = 0;
+						for (Integer tf : termFreq.values()) {
+							double wt = 1 + Math.log10(tf);							
+							sum = sum + Math.pow(wt, 2);
+						}						
+						docWeights.add(Math.sqrt(sum));*/						
 						mDocumentID++;
 					}
 					return FileVisitResult.CONTINUE;
@@ -417,8 +524,12 @@ public class SearchOverviewController {
 					return FileVisitResult.CONTINUE;
 				}
 			});			
-			System.out.println("Index creation finished at : " + Calendar.getInstance().getTime());
-			System.out.println("Indexes created successfully");
+			System.out.println("In Memory Index creation finished at : " + Calendar.getInstance().getTime());
+			System.out.println("In MemoryIndexes created successfully");
+			
+			// Saving the indexes on disk
+			this.saveIndexesOnDisk();
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

@@ -1,11 +1,13 @@
 package com.csulb.edu.set.query;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.csulb.edu.set.exception.InvalidQueryException;
-import com.csulb.edu.set.indexes.biword.BiWordIndex;
-import com.csulb.edu.set.indexes.pii.PositionalInvertedIndex;
+import com.csulb.edu.set.indexes.Index;
+import com.csulb.edu.set.indexes.kgram.KGramIndex;
 import com.csulb.edu.set.indexes.pii.PositionalPosting;
 import com.csulb.edu.set.utils.PorterStemmer;
 import com.csulb.edu.set.utils.Utils;
@@ -21,7 +23,7 @@ public class QueryRunner {
 	 * 
 	 * @param queryInput
 	 *            query input
-	 * @param pInvertedIndex
+	 * @param invertedIndex
 	 *            positional inverted index
 	 * @param biWordIndex
 	 *            bi-word index
@@ -29,8 +31,8 @@ public class QueryRunner {
 	 * @throws InvalidQueryException
 	 *             when query input is invalid
 	 */
-	public static List<Integer> runQueries(String queryInput, PositionalInvertedIndex pInvertedIndex,
-			BiWordIndex biWordIndex) throws InvalidQueryException {
+	public static List<Integer> runQueries(String queryInput, Index<PositionalPosting> invertedIndex,
+			Index<Integer> biWordIndex, KGramIndex kGramIndex) throws InvalidQueryException {
 		System.out.println("Running the query");
 		List<Integer> docIds = new ArrayList<Integer>();
 		// parse query input into a list of query objects
@@ -39,7 +41,7 @@ public class QueryRunner {
 		for (Query query : queries) {
 			// get the union of the results returned from each individual query
 			// (Qi)
-			docIds = getUnion(docIds, getdocIdsMatchingQuery(query, pInvertedIndex, biWordIndex));
+			docIds = getUnion(docIds, getdocIdsMatchingQuery(query, invertedIndex, biWordIndex, kGramIndex));
 		}
 
 		return docIds;
@@ -62,36 +64,81 @@ public class QueryRunner {
 	 * 
 	 * @param query
 	 *            Query object
-	 * @param pInvertedIndex
+	 * @param invertedIndex
 	 *            positional inverted index
 	 * @param biWordIndex
 	 *            bi-word index
 	 * @return a list of document IDs that match the query
 	 */
-	private static List<Integer> getdocIdsMatchingQuery(Query query, PositionalInvertedIndex pInvertedIndex,
-			BiWordIndex biWordIndex) {
+	private static List<Integer> getdocIdsMatchingQuery(Query query, Index<PositionalPosting> invertedIndex,
+			Index<Integer> biWordIndex, KGramIndex kGramIndex) {
 		// final results
 		List<Integer> results = new ArrayList<Integer>();
+		
 		for (QueryLiteral queryLiteral : query.getQueryLiterals()) {
 			// docIds that match the current query literal that is being
 			// processed
 			List<Integer> docIds = new ArrayList<Integer>();
 			if (!queryLiteral.isPhrase()) {
-				// use positional inverted index for single tokens
-				// get all the postings that match the token
-				List<PositionalPosting> positionalPostings = pInvertedIndex.getPostings(PorterStemmer
-						.processToken(Utils.removeHyphens(Utils.processWord(queryLiteral.getTokens().get(0)))));
-				if (positionalPostings != null) {
-					for (PositionalPosting positionalPosting : positionalPostings) {
-						// add the docId in each posting to docIds
-						docIds.add(positionalPosting.getDocumentId());
+				String word = queryLiteral.getTokens().get(0);
+				String wordRegex = word.replace("*", ".*");
+				if (word.contains("*")) {
+					// use K-Gram Index and positional inverted index
+					if (word.charAt(0) != '*'){
+						word = '$' + word;
+					}
+					if (word.charAt(word.length() - 1) != '*'){
+						word = word + '$';
+					}
+					String[] sequences = word.split("\\*");
+					Set<String> candidates = new HashSet<String>();
+					for (String sequence : sequences) {
+						if (sequence.length() > 3) {
+							for (int i = 0; i < sequence.length() - 3; i++) {
+							    String substr = sequence.substring(i, i+3);
+							    for (String candidate : kGramIndex.get(substr)){
+							    	// do post filter
+							    	if (candidate.matches(wordRegex)) candidates.add(candidate);
+							    }
+							}
+						} else if (sequence.length() > 0) {
+							for (String candidate : kGramIndex.get(sequence)){
+						    	// do post filter
+						    	if (candidate.matches(wordRegex)) candidates.add(candidate);
+						    }
+						}
+					}
+					// find positional postings of all candidates and OR the results
+					for (String candidate : candidates) {
+						List<Integer> candidateDocIds = new ArrayList<Integer>();
+						List<PositionalPosting> positionalPostings = invertedIndex.getPostings(PorterStemmer
+								.processToken(Utils.processWord(candidate, true)));
+						if (positionalPostings != null) {
+							for (PositionalPosting positionalPosting : positionalPostings) {
+								// add the docId in each posting to docIds
+								candidateDocIds.add(positionalPosting.getDocumentId());
+								// TODO: remove duplicate docIds
+							}
+						}
+						docIds = getUnion(docIds, candidateDocIds);
+					}	
+				} else {
+					// use positional inverted index for single tokens
+					// get all the postings that match the token
+					List<PositionalPosting> positionalPostings = invertedIndex.getPostings(PorterStemmer
+							.processToken(word));
+					if (positionalPostings != null) {
+						for (PositionalPosting positionalPosting : positionalPostings) {
+							// add the docId in each posting to docIds
+							docIds.add(positionalPosting.getDocumentId());
+						}
 					}
 				}
 			} else if (queryLiteral.isPhrase() && queryLiteral.getTokens().size() == 2) {
 				// use bi-word index for 2-word-phrases
 				List<Integer> postings = biWordIndex.getPostings(
-						PorterStemmer.processToken(Utils.processWord(queryLiteral.getTokens().get(0))) + PorterStemmer
-								.processToken(Utils.removeHyphens(Utils.processWord(queryLiteral.getTokens().get(1)))));
+						PorterStemmer.processToken(queryLiteral.getTokens().get(0)) + PorterStemmer
+								.processToken(queryLiteral.getTokens().get(1)));
 				if (postings != null) {
 					docIds.addAll(postings);
 				}
@@ -104,8 +151,8 @@ public class QueryRunner {
 					String token = queryLiteral.getTokens().get(i);
 					// currentPostings: postings that match the query literals
 					// that is currently being processed
-					List<PositionalPosting> currentPostings = pInvertedIndex
-							.getPostings(Utils.removeHyphens(PorterStemmer.processToken(Utils.processWord(token))));
+					List<PositionalPosting> currentPostings = invertedIndex
+							.getPostings(PorterStemmer.processToken(Utils.removeHyphens(token)));
 					if (currentPostings == null) {
 						// no possible results
 						break;

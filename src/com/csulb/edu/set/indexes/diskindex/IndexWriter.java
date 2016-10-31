@@ -43,7 +43,7 @@ public class IndexWriter {
 	}
 
 	/**
-	 * Builds the normal NaiveInvertedIndex for the folder.
+	 * Builds the PositionalInvertedIndex
 	 */
 	private static void buildIndexForDirectory(String folder) {
 		PositionalInvertedIndex pInvertedIndex = new PositionalInvertedIndex();
@@ -166,7 +166,7 @@ public class IndexWriter {
 					 */	
 					
 					// Get the term frequency i.e. the number of times this particular terms occurs in this docId
-					int termFrequency = positionalPosting.getPositions().size();
+					/*int termFrequency = positionalPosting.getPositions().size();
 					
 					// Convert the integer representation of the termFrequency into its corresponding byteFrequency
 					byte[] termFreqBytes = ByteBuffer.allocate(4).putInt(termFrequency).array(); 
@@ -177,7 +177,8 @@ public class IndexWriter {
 					for (Integer pos : positionalPosting.getPositions()) {
 						byte[] posBytes = ByteBuffer.allocate(4).putInt(pos).array(); 
 						postingsFile.write(posBytes, 0, posBytes.length);
-					}
+					}*/
+					
 					lastDocId = docId;
 				}
 				vocabI++;
@@ -246,7 +247,7 @@ public class IndexWriter {
 	}
 
 	private static void indexFiles(String folder, final PositionalInvertedIndex index) {
-		int documentID = 0;
+		
 		final Path currentWorkingPath = Paths.get(folder).toAbsolutePath();
 
 		try {
