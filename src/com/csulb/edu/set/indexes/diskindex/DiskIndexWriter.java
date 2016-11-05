@@ -93,7 +93,7 @@ public class DiskIndexWriter {
 				// for each String in dictionary, save the byte position where
 				// that term will start in the vocab file.
 				vocabPositions[vocabI] = vocabPos;
-				System.out.println("Byte Position where the word " + vocabWord + " starts is : " + vocabPos);
+				//System.out.println("Byte Position where the word " + vocabWord + " starts is : " + vocabPos);
 				
 				vocabList.write(vocabWord); // then write the String
 				
@@ -171,7 +171,7 @@ public class DiskIndexWriter {
 				for (int i = 0; i < pPositionBytes.length; i++) {
 					System.out.print(pPositionBytes[i]);
 				}*/
-				System.out.println("The address in postings.bin from where the postings of the term " + s + " starts : " + postingsFile.getChannel().position());
+				// System.out.println("The address in postings.bin from where the postings of the term " + s + " starts : " + postingsFile.getChannel().position());
 				vocabTable.write(pPositionBytes, 0, pPositionBytes.length);
 
 				/**
@@ -203,7 +203,7 @@ public class DiskIndexWriter {
 					
 					int docId = positionalPosting.getDocumentId();
 					
-					System.out.println("Document Id : " + docId + " postings hashcode : " + positionalPosting.getPositions().toString() + " positions size : " + positionalPosting.getPositions().size());
+					// System.out.println("Document Id : " + docId + " postings hashcode : " + positionalPosting.getPositions().toString() + " positions size : " + positionalPosting.getPositions().size());
 					
 					// encode a gap, not a docID
 					byte[] docIdBytes = ByteBuffer.allocate(4).putInt(docId - lastDocId).array(); 

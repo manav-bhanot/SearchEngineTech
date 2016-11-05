@@ -3,7 +3,12 @@
  */
 package com.csulb.edu.set.query;
 
-public class RankedDocuments implements Comparable<RankedDocuments> {
+public class RankedDocuments implements Comparable<RankedDocuments> {	
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	
 	private int documentId;
 	
@@ -46,10 +51,6 @@ public class RankedDocuments implements Comparable<RankedDocuments> {
 		this.scoreAccumulator = scoreAccumulator;
 	}
 
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
 
 	@Override
 	public int compareTo(RankedDocuments o) {

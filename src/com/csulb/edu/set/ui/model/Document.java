@@ -1,102 +1,74 @@
 package com.csulb.edu.set.ui.model;
 
+import javafx.beans.property.FloatProperty;
+import javafx.beans.property.SimpleFloatProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 
 public class Document {
 
-	private String body;
-	private String url;
-	private String title;
+	private StringProperty documentName;
+	private FloatProperty docScore;
 
 	/**
-	 * No args constructor for use in serialization
-	 * 
+	 * Default constructor.
 	 */
 	public Document() {
+		this(null, null);
 	}
 
 	/**
+	 * Constructor with some initial data.
 	 * 
-	 * @param body
-	 * @param title
-	 * @param url
+	 * @param firstName
+	 * @param lastName
 	 */
-	public Document(String body, String url, String title) {
-		this.body = body;
-		this.url = url;
-		this.title = title;
+	public Document(String documentName, Float docScore) {
+		this.documentName = new SimpleStringProperty(documentName);
+		this.docScore = new SimpleFloatProperty(docScore);
 	}
 
 	/**
-	 * 
-	 * @return The body
+	 * @return the documentName
 	 */
-	public String getBody() {
-		return body;
+	public String getDocumentName() {
+		return documentName.get();
 	}
 
 	/**
-	 * 
-	 * @param body
-	 *            The body
+	 * @param documentName the documentName to set
 	 */
-	public void setBody(String body) {
-		this.body = body;
+	public void setDocumentName(StringProperty documentName) {
+		this.documentName = documentName;
+	}
+	
+	/**
+	 * 
+	 * @return
+	 */
+	public StringProperty documentNameProperty() {
+		return documentName;
 	}
 
 	/**
-	 * 
-	 * @return The url
+	 * @return the docScore
 	 */
-	public String getUrl() {
-		return url;
+	public Float getDocScore() {
+		return docScore.get();
 	}
 
 	/**
-	 * 
-	 * @param url
-	 *            The url
+	 * @param docScore the docScore to set
 	 */
-	public void setUrl(String url) {
-		this.url = url;
+	public void setDocScore(FloatProperty docScore) {
+		this.docScore = docScore;
 	}
-
+	
 	/**
 	 * 
-	 * @return The title
+	 * @return
 	 */
-	public String getTitle() {
-		return title;
+	public FloatProperty documentScoreProperty() {
+		return docScore;
 	}
-
-	/**
-	 * 
-	 * @param title
-	 *            The title
-	 */
-	public void setTitle(String title) {
-		this.title = title;
-	}
-
-	/*@Override
-	public String toString() {
-		return ToStringBuilder.reflectionToString(this);
-	}
-
-	@Override
-	public int hashCode() {
-		return new HashCodeBuilder().append(body).append(url).append(title).toHashCode();
-	}
-
-	@Override
-	public boolean equals(Object other) {
-		if (other == this) {
-			return true;
-		}
-		if ((other instanceof Document) == false) {
-			return false;
-		}
-		Document rhs = ((Document) other);
-		return new EqualsBuilder().append(body, rhs.body).append(url, rhs.url).append(title, rhs.title).isEquals();
-	}*/
-
 }
