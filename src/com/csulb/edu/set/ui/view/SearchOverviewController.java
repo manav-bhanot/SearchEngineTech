@@ -46,6 +46,7 @@ import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.RadioButton;
 import javafx.scene.control.SelectionModel;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -103,6 +104,8 @@ public class SearchOverviewController {
 
 	@FXML
 	private TextArea jsonBodyContents;
+	
+	private RadioButton queryMode;
 
 	// Declare an object of PositionalInvertedIndex
 	private Index<PositionalPosting> pInvertedIndex;
@@ -129,6 +132,8 @@ public class SearchOverviewController {
 
 	// Reference to the main application.
 	private MainApp mainApp;
+	
+	// 
 
 	/**
 	 * Is called by the main application to give a reference back to itself.
@@ -315,19 +320,21 @@ public class SearchOverviewController {
 			// in documentsList variable
 			System.out.println("Searching for " + queryString);
 			
+			this.invertedIndex = new DiskInvertedIndex(this.dirPath);
+			
 			// Instantiates an object based on whether the user want to use DiskIndex or InMemoryIndex
-			if (useDiskIndex) {				
+			/*if (useDiskIndex) {				
 				this.invertedIndex = new DiskInvertedIndex(this.dirPath);
 //				this.kGramIndex = new KGramIndex(this.dirPath);
 			} else  {
 				this.invertedIndex = this.pInvertedIndex;
-			}
+			}*/
 
 			if (this.invertedIndex != null && this.biWordIndex != null) {
 				if (!documents.isEmpty())
 					documents.clear();
 				try {
-					List<Integer> docIds = QueryRunner.runQueries(queryString, invertedIndex, biWordIndex, kGramIndex);					
+					List<Integer> docIds = QueryRunner.runBooleanQueries(queryString, invertedIndex, biWordIndex, kGramIndex);					
 					numberOfDocsMatchingQuery.setText("Total documents found for this query = "+docIds.size());
 					if (!this.numberOfDocsMatchingQuery.isVisible()) this.numberOfDocsMatchingQuery.setVisible(true);
 					

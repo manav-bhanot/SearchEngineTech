@@ -6,7 +6,6 @@ import java.util.*;
 
 import com.csulb.edu.set.indexes.Index;
 import com.csulb.edu.set.indexes.kgram.KGramIndex;
-import com.csulb.edu.set.indexes.pii.PositionalInvertedIndex;
 import com.csulb.edu.set.indexes.pii.PositionalPosting;
 
 public class DiskIndexWriter {

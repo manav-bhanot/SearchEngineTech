@@ -75,6 +75,7 @@ public class DiskInvertedIndex extends Index<PositionalPosting> {
 
 			byte docIdsBuffer[] = new byte[4];
 			byte positionsBuffer[] = new byte[4];
+			byte wdtBuffer[] = new byte[8];
 
 			for (int docIdIndex = 0; docIdIndex < documentFrequency; docIdIndex++) {
 
@@ -90,7 +91,9 @@ public class DiskInvertedIndex extends Index<PositionalPosting> {
 				docId = ByteBuffer.wrap(docIdsBuffer).getInt() + lastDocId;
 				
 				// Next 8 bytes is the document weight corresponding to the 
-				postings.skipBytes(8);
+				//postings.skipBytes(8);
+				postings.read(wdtBuffer, 0, wdtBuffer.length);
+				double wdt = ByteBuffer.wrap(wdtBuffer).getDouble();
 				
 				// Allocate a buffer for the 4 byte term frequency value
 				buffer = new byte[4];
@@ -110,7 +113,7 @@ public class DiskInvertedIndex extends Index<PositionalPosting> {
 
 				lastDocId = docId;
 				PositionalPosting positionalPosting = new PositionalPosting(docId,
-						Arrays.stream(positions).boxed().collect(Collectors.toList()));
+						Arrays.stream(positions).boxed().collect(Collectors.toList()), wdt);
 
 				docList.add(positionalPosting);
 			}
@@ -182,7 +185,7 @@ public class DiskInvertedIndex extends Index<PositionalPosting> {
 
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
 					// only process .txt files
-					if (file.toString().endsWith(".txt")) {
+					if (file.toString().endsWith(".json")) {
 						names.add(file.toFile().getName());
 					}
 					return FileVisitResult.CONTINUE;
