@@ -31,6 +31,8 @@ import com.csulb.edu.set.indexes.kgram.KGramIndex;
 import com.csulb.edu.set.indexes.pii.PositionalInvertedIndex;
 import com.csulb.edu.set.indexes.pii.PositionalPosting;
 import com.csulb.edu.set.query.QueryRunner;
+import com.csulb.edu.set.query.RankedDocuments;
+import com.csulb.edu.set.ui.model.Document;
 import com.csulb.edu.set.utils.PorterStemmer;
 import com.csulb.edu.set.utils.Utils;
 
@@ -48,6 +50,8 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.SelectionModel;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
@@ -60,6 +64,9 @@ public class SearchOverviewController {
 	/**
 	 * Holds the documents returned as result of query
 	 */
+	
+	// List of documents that matches the search query
+	private ObservableList<Document> rankedDocumentsList;
 	
 	// List of documents that matches the search query
 	private ObservableList<String> documents;
@@ -105,7 +112,22 @@ public class SearchOverviewController {
 	@FXML
 	private TextArea jsonBodyContents;
 	
-	private RadioButton queryMode;
+	@FXML
+	private RadioButton rankedRetrieval;
+	
+	@FXML
+	private RadioButton booleanRetrieval;
+	
+	@FXML
+	private TableView<Document> retrievedRankedDocumentsTable;
+	
+	@FXML
+	private TableColumn<Document, String> documentNameColumn;
+	
+	@FXML
+	private TableColumn<Document, String> documentScoreColumn;
+	
+	private boolean doBooleanQuery = true;
 
 	// Declare an object of PositionalInvertedIndex
 	private Index<PositionalPosting> pInvertedIndex;
@@ -204,6 +226,7 @@ public class SearchOverviewController {
 					this.listView.getItems().clear();
 					this.vocab.clear();
 					this.documents.clear();
+					this.rankedDocumentsList.clear();
 					
 					/**
 					 * TODO
@@ -278,6 +301,34 @@ public class SearchOverviewController {
 		alert.setContentText(msg);
 		return alert;
 	}
+	
+	@FXML
+	private void toggleQueryMode(ActionEvent event) {
+		if (booleanRetrieval.isSelected()) {
+			this.doBooleanQuery = true;
+			
+			// Checks if for the current query we already fetched the results
+			// then just display the corresponding table
+			if (this.userQuery.getText() != null && !this.userQuery.getText().isEmpty()) {
+				this.searchCorpus();
+			}
+			
+			this.retrievedRankedDocumentsTable.setVisible(false);
+			this.listView.setVisible(true);			
+		} else {
+			this.doBooleanQuery = false;
+			
+			// Checks if for the current query we already fetched the results
+			// then just display the corresponding table
+			if (this.userQuery.getText() != null && !this.userQuery.getText().isEmpty()) {
+				// call the query api to fetch the results
+				this.searchCorpus();
+			}
+			
+			this.retrievedRankedDocumentsTable.setVisible(true);
+			this.listView.setVisible(false);
+		}
+	}
 
 	@FXML
 	private void indexNewDirectory() {
@@ -291,7 +342,7 @@ public class SearchOverviewController {
 	private void searchCorpus() {
 		// Get the query entered by the user in the query text box in the
 		// queryString variable
-		String queryString = userQuery.getText();
+		String queryString = this.userQuery.getText();
 
 		// Check if the user has actually entered a query. If it is blank ask
 		// the user to enter a query
@@ -322,31 +373,49 @@ public class SearchOverviewController {
 			
 			this.invertedIndex = new DiskInvertedIndex(this.dirPath);
 			
-			// Instantiates an object based on whether the user want to use DiskIndex or InMemoryIndex
-			/*if (useDiskIndex) {				
-				this.invertedIndex = new DiskInvertedIndex(this.dirPath);
-//				this.kGramIndex = new KGramIndex(this.dirPath);
-			} else  {
-				this.invertedIndex = this.pInvertedIndex;
-			}*/
+			/**
+			 * TO-DO
+			 * Move the biword index on disk and run phrase boolean queries from the biword index
+			 * Currently I am just initializing the biwordIndex object so that the next if check returns true
+			 */
+			this.biWordIndex = new BiWordIndex();
 
 			if (this.invertedIndex != null && this.biWordIndex != null) {
 				if (!documents.isEmpty())
 					documents.clear();
 				try {
-					List<Integer> docIds = QueryRunner.runBooleanQueries(queryString, invertedIndex, biWordIndex, kGramIndex);					
+					List<Integer> docIds = null;
+					List<RankedDocuments> rankedDocuments = null;
+					
+					// Check if boolean query has to be performed or ranked query has to be performed
+					if (doBooleanQuery) {
+						docIds = QueryRunner.runBooleanQueries(queryString, invertedIndex, biWordIndex, kGramIndex);
+						// Show an info box saying no results found
+						if (docIds.isEmpty()) {
+							showAlertBox("Sorry. Your search results does not fetch any documents from the corpus", AlertType.INFORMATION);
+						}
+						
+						for (int docId : docIds) {
+							documents.add(fileNames.get(docId));
+							//System.out.println(fileNames.get(docId));
+						}
+					} else {
+						rankedDocuments = QueryRunner.runRankedQueries(queryString, invertedIndex, biWordIndex, kGramIndex);
+						// Show an info box saying no results found
+						if (rankedDocuments.isEmpty()) {
+							showAlertBox("Sorry. Your search results does not fetch any documents from the corpus", AlertType.INFORMATION);
+						}
+						
+						/*for (int docId : docIds) {
+							documents.add(fileNames.get(docId));
+							//System.out.println(fileNames.get(docId));
+						}*/
+					}
+										
 					numberOfDocsMatchingQuery.setText("Total documents found for this query = "+docIds.size());
 					if (!this.numberOfDocsMatchingQuery.isVisible()) this.numberOfDocsMatchingQuery.setVisible(true);
 					
-					// Show an info box saying no results found
-					if (docIds.isEmpty()) {
-						showAlertBox("Sorry. Your search results does not fetch any documents from the corpus", AlertType.INFORMATION);
-					}
 					
-					for (int docId : docIds) {
-						documents.add(fileNames.get(docId));
-						//System.out.println(fileNames.get(docId));
-					}
 				} catch (InvalidQueryException e) {
 					// Show an Error Alert box saying the Query is invalid
 					showAlertBox("Invalid Query Format. Kindly re enter the query", AlertType.ERROR);
@@ -548,6 +617,28 @@ public class SearchOverviewController {
 	 */
 	@FXML
 	private void initialize() {
+		
+		// Initialize the person table with the two columns.
+		documentNameColumn.setCellValueFactory(cellData -> cellData.getValue().documentNameProperty());
+		documentScoreColumn.setCellValueFactory(cellData -> cellData.getValue().documentScoreProperty().asString());
+
+		// Clear person details.
+		// showPersonDetails(null);
+
+		// Listen for selection changes and show the person details when
+		// changed.
+		retrievedRankedDocumentsTable.addEventFilter(MouseEvent.MOUSE_CLICKED, event -> {
+			if (event.getClickCount() == 2) {
+				SelectionModel<Document> selectionModel = retrievedRankedDocumentsTable.getSelectionModel();
+				Document docSelected = selectionModel.getSelectedItem();
+				if (docSelected.getDocumentName().contains("json")) {
+					this.jsonBodyContents.setText(Utils.getDocumentText(dirPath + "\\" + docSelected.getDocumentName()));
+				}
+			}
+		});
+		
+		/*retrievedRankedDocumentsTable.getSelectionModel().selectedItemProperty()
+				.addListener((observable, oldValue, newValue) -> displayDocumentContents(newValue));*/
 
 		// Attach an event listener to the list items which handles the click on the list items that contains the document names 
 		// as part of the search query result
@@ -568,6 +659,7 @@ public class SearchOverviewController {
 	 * method.
 	 */
 	public SearchOverviewController() {
+		rankedDocumentsList = FXCollections.observableArrayList();
 		documents = FXCollections.observableArrayList();
 		listView = new ListView<String>();
 		vocab = FXCollections.observableArrayList();

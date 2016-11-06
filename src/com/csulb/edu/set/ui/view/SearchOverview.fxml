@@ -9,9 +9,13 @@
 <?import javafx.scene.control.Menu?>
 <?import javafx.scene.control.MenuBar?>
 <?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.RadioButton?>
 <?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ToggleGroup?>
 <?import javafx.scene.effect.Blend?>
 <?import javafx.scene.layout.AnchorPane?>
 
@@ -43,11 +47,11 @@
          <children>
             <SplitPane dividerPositions="0.30267558528428096" layoutX="8.0" layoutY="14.0" prefHeight="400.0" prefWidth="600.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
               <items>
-                <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="428.0" prefWidth="226.0">
+                <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="428.0" prefWidth="141.0">
                      <children>
-                        <SplitPane dividerPositions="0.2601010101010101" maxHeight="-Infinity" maxWidth="-Infinity" minWidth="100.0" orientation="VERTICAL" prefHeight="398.0" prefWidth="100.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                        <SplitPane dividerPositions="0.2601010101010101" maxHeight="-Infinity" maxWidth="-Infinity" minWidth="100.0" orientation="VERTICAL" prefHeight="428.0" prefWidth="178.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
                           <items>
-                            <AnchorPane maxHeight="-Infinity" minHeight="50.0" minWidth="0.0" prefHeight="70.0" prefWidth="100.0">
+                            <AnchorPane maxHeight="-Infinity" minHeight="50.0" minWidth="0.0" prefHeight="100.0" prefWidth="176.0">
                                  <children>
                                     <TextField fx:id="userQuery" cache="true" layoutX="12.0" layoutY="14.0" promptText="Enter Your Query Here" AnchorPane.leftAnchor="5.0" AnchorPane.rightAnchor="5.0" AnchorPane.topAnchor="5.0">
                                        <cursor>
@@ -56,7 +60,7 @@
                                        <effect>
                                           <Blend />
                                        </effect></TextField>
-                                    <ButtonBar buttonMinWidth="45.0" layoutY="33.0" prefHeight="36.0" prefWidth="176.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="33.0">
+                                    <ButtonBar buttonMinWidth="20.0" layoutY="33.0" minHeight="36.0" minWidth="-Infinity" prefHeight="38.0" prefWidth="20.0" AnchorPane.bottomAnchor="37.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="5.0" AnchorPane.topAnchor="33.0">
                                       <buttons>
                                         <Button fx:id="search" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onMouseClicked="#searchCorpus" prefHeight="24.0" prefWidth="12.0" text="Search" />
                                           <Button fx:id="findStem" mnemonicParsing="false" onAction="#findStem" text="Find Stem" />
@@ -66,11 +70,23 @@
                                           <Insets left="-5.0" />
                                        </padding>
                                     </ButtonBar>
+                                    <RadioButton fx:id="booleanRetrieval" layoutX="5.0" layoutY="77.0" mnemonicParsing="false" onAction="#toggleQueryMode" prefHeight="18.0" prefWidth="120.0" selected="true" text="Boolean Retrieval" AnchorPane.bottomAnchor="13.0" AnchorPane.leftAnchor="10.0" AnchorPane.topAnchor="77.0">
+                                       <toggleGroup>
+                                          <ToggleGroup fx:id="QueryMode" />
+                                       </toggleGroup>
+                                    </RadioButton>
+                                    <RadioButton fx:id="rankedRetrieval" layoutX="99.0" layoutY="77.0" mnemonicParsing="false" onAction="#toggleQueryMode" prefHeight="18.0" prefWidth="115.0" text="Ranked Retrieval" toggleGroup="$QueryMode" AnchorPane.bottomAnchor="13.0" AnchorPane.leftAnchor="150.0" AnchorPane.topAnchor="77.0" />
                                  </children>
                               </AnchorPane>
                             <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="250.0" prefWidth="173.0">
                                  <children>
                                     <ListView fx:id="listView" layoutX="14.0" prefHeight="290.0" prefWidth="336.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                                    <TableView layoutX="2.0" prefHeight="320.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                                      <columns>
+                                        <TableColumn maxWidth="1.7976931348623157E308" prefWidth="120.33334350585938" text="Document Name" />
+                                        <TableColumn prefWidth="66.66665649414062" text="Score" />
+                                      </columns>
+                                    </TableView>
                                  </children>
                               </AnchorPane>
                           </items>
