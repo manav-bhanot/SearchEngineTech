@@ -3,7 +3,7 @@
  */
 package com.csulb.edu.set.query;
 
-public class RankedDocuments implements Comparable<RankedDocuments> {	
+public class RankedDocument implements Comparable<RankedDocument> {	
 
 	/**
 	 * 
@@ -12,13 +12,13 @@ public class RankedDocuments implements Comparable<RankedDocuments> {
 	
 	private int documentId;
 	
-	private float scoreAccumulator;
+	private double scoreAccumulator;
 
-	public RankedDocuments(int documentId) {
+	public RankedDocument(int documentId) {
 		this.documentId = documentId;
 	}
 
-	public RankedDocuments(int documentId, float score) {
+	public RankedDocument(int documentId, double score) {
 		this.documentId = documentId;
 		this.scoreAccumulator = score;
 	}
@@ -40,20 +40,20 @@ public class RankedDocuments implements Comparable<RankedDocuments> {
 	/**
 	 * @return the scoreAccumulator
 	 */
-	public float getScoreAccumulator() {
+	public double getScoreAccumulator() {
 		return scoreAccumulator;
 	}
 
 	/**
 	 * @param scoreAccumulator the scoreAccumulator to set
 	 */
-	public void setScoreAccumulator(float scoreAccumulator) {
+	public void setScoreAccumulator(double scoreAccumulator) {
 		this.scoreAccumulator = scoreAccumulator;
 	}
 
 
 	@Override
-	public int compareTo(RankedDocuments o) {
+	public int compareTo(RankedDocument o) {
 		if (this.scoreAccumulator < o.scoreAccumulator) {
 			return 1;
 		} else if (this.scoreAccumulator > o.scoreAccumulator) {

@@ -81,10 +81,10 @@
                             <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="250.0" prefWidth="173.0">
                                  <children>
                                     <ListView fx:id="listView" layoutX="14.0" prefHeight="290.0" prefWidth="336.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
-                                    <TableView layoutX="2.0" prefHeight="320.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                                    <TableView fx:id="retrievedRankedDocumentsTable" layoutX="2.0" prefHeight="320.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
                                       <columns>
-                                        <TableColumn maxWidth="1.7976931348623157E308" prefWidth="120.33334350585938" text="Document Name" />
-                                        <TableColumn prefWidth="66.66665649414062" text="Score" />
+                                        <TableColumn fx:id="documentNameColumn" maxWidth="1.7976931348623157E308" prefWidth="120.33334350585938" text="Document Name" />
+                                        <TableColumn fx:id="documentScoreColumn" prefWidth="66.66665649414062" text="Score" />
                                       </columns>
                                     </TableView>
                                  </children>

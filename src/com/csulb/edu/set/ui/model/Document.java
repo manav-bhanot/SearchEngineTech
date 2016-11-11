@@ -1,14 +1,14 @@
 package com.csulb.edu.set.ui.model;
 
-import javafx.beans.property.FloatProperty;
-import javafx.beans.property.SimpleFloatProperty;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 
 public class Document {
 
 	private StringProperty documentName;
-	private FloatProperty docScore;
+	private DoubleProperty docScore;
 
 	/**
 	 * Default constructor.
@@ -23,9 +23,9 @@ public class Document {
 	 * @param firstName
 	 * @param lastName
 	 */
-	public Document(String documentName, Float docScore) {
+	public Document(String documentName, Double docScore) {
 		this.documentName = new SimpleStringProperty(documentName);
-		this.docScore = new SimpleFloatProperty(docScore);
+		this.docScore = new SimpleDoubleProperty(docScore);
 	}
 
 	/**
@@ -53,14 +53,14 @@ public class Document {
 	/**
 	 * @return the docScore
 	 */
-	public Float getDocScore() {
+	public Double getDocScore() {
 		return docScore.get();
 	}
 
 	/**
 	 * @param docScore the docScore to set
 	 */
-	public void setDocScore(FloatProperty docScore) {
+	public void setDocScore(DoubleProperty docScore) {
 		this.docScore = docScore;
 	}
 	
@@ -68,7 +68,7 @@ public class Document {
 	 * 
 	 * @return
 	 */
-	public FloatProperty documentScoreProperty() {
+	public DoubleProperty documentScoreProperty() {
 		return docScore;
 	}
 }

@@ -10,7 +10,7 @@ import java.util.Set;
 
 import com.csulb.edu.set.exception.InvalidQueryException;
 import com.csulb.edu.set.indexes.Index;
-import com.csulb.edu.set.indexes.diskindex.DiskInvertedIndex;
+import com.csulb.edu.set.indexes.diskindex.DiskPositionalIndex;
 import com.csulb.edu.set.indexes.kgram.KGramIndex;
 import com.csulb.edu.set.indexes.pii.PositionalPosting;
 import com.csulb.edu.set.utils.PorterStemmer;
@@ -40,68 +40,82 @@ public class QueryRunner {
 		System.out.println("Running the query");
 		List<Integer> docIds = new ArrayList<Integer>();
 		// parse query input into a list of query objects
-		List<Query> queries = QueryParser.parseBooleanQuery(queryInput);
+		List<Query> queries = QueryParser.parseQuery(queryInput);
 
 		for (Query query : queries) {
-			// get the union of the results returned from each individual query
-			// (Qi)
+			// get the union of the results returned from each individual query (Qi)
 			docIds = getUnion(docIds, getdocIdsMatchingQuery(query, invertedIndex, biWordIndex, kGramIndex));
 		}
 
 		return docIds;
 	}
-	
-	
-	public static List<RankedDocuments> runRankedQueries(String queryInput, Index<PositionalPosting> invertedIndex,
-			Index<Integer> biWordIndex, KGramIndex kGramIndex) throws InvalidQueryException {
+
+	public static List<RankedDocument> runRankedQueries(String queryInput, Index<PositionalPosting> invertedIndex,
+			KGramIndex kGramIndex, int corpusSize) throws InvalidQueryException {
 		System.out.println("Running the query");
-		
+
 		int k = 10;
 		
-		PriorityQueue<RankedDocuments> pQueue = new PriorityQueue<RankedDocuments>();
+		PriorityQueue<RankedDocument> pQueue = new PriorityQueue<RankedDocument>();
 		
-		List<RankedDocuments> rankedDocumentsList = new ArrayList<RankedDocuments>();
+		List<RankedDocument> rankedDocumentsList = new ArrayList<RankedDocument>();
 		
-		DiskInvertedIndex diskInvertedIndex = (DiskInvertedIndex) invertedIndex;
+		DiskPositionalIndex diskPositionalIndex = (DiskPositionalIndex) invertedIndex;
 		
 		// parse query input into a list of query objects
-		List<Query> queries = QueryParser.parseBooleanQuery(queryInput);
+		List<Query> queries = QueryParser.parseQuery(queryInput);
 
-		Map<Integer, RankedDocuments> rankedDocs = new HashMap<Integer, RankedDocuments>();
+		Map<Integer, RankedDocument> rankedDocs = new HashMap<Integer, RankedDocument>();
 		
+		// ignore all boolean operations and phrases
+		Set<String> terms = new HashSet<String>();
 		for (Query query : queries) {
 			 for (QueryLiteral queryLiterals : query.getQueryLiterals()) {
-				 for (String term : queryLiterals.getTokens()) {
-					 
-					 List<PositionalPosting> termPostingsList = diskInvertedIndex.getPostings(term);
-					 
-					 // Calculate wqt for this term
-					 double wqt = Math.log((1 + (diskInvertedIndex.getFileNames().size() / termPostingsList.size())));
-					 
-					 for (PositionalPosting pPosting : termPostingsList) {
-						 float newScore = 0f;
-						 RankedDocuments rankedDoc = null;
-						 if (rankedDocs.containsKey(pPosting.getDocumentId())) {
-							 rankedDoc = rankedDocs.get(pPosting.getDocumentId());
-							 newScore = (float) (rankedDoc.getScoreAccumulator() + (wqt * pPosting.getWdt()));
-							 rankedDoc.setScoreAccumulator(newScore);							 
-						 } else {							 
-							 newScore =  (float) (wqt * pPosting.getWdt());
-							 rankedDoc = new RankedDocuments(pPosting.getDocumentId(), newScore);
-						 }
-						 rankedDocs.put(pPosting.getDocumentId(), rankedDoc);
-						 //pPosting.setScoreAccumulator(pPosting.getScoreAccumulator() + (wqt * pPosting.getWdt()));
-					 }					 
+				 for (String word : queryLiterals.getTokens()) {
+					 if (word.contains("*") && kGramIndex != null) {
+						 terms.addAll(getKGramCandidates(word, kGramIndex));
+					 } else {
+						 terms.add(word);
+					 }
 				 }
 			 }
 		}
-		
+		for (String term : terms) {
+			List<PositionalPosting> termPostingsList = diskPositionalIndex
+					.getPostings(PorterStemmer.processToken(term));
+
+			// potential issue: termPostingsList can be null if term contains non-ASCII characters
+			if (termPostingsList != null) {
+				// Calculate wqt for this term
+				double wqt = Math.log((1 + ((double) corpusSize / termPostingsList.size())));
+
+				for (PositionalPosting pPosting : termPostingsList) {
+					double newScore = 0;
+					RankedDocument rankedDoc = null;
+					if (rankedDocs.containsKey(pPosting.getDocumentId())) {
+						rankedDoc = rankedDocs.get(pPosting.getDocumentId());
+						newScore = rankedDoc.getScoreAccumulator() + (wqt * pPosting.getWdt());
+						rankedDoc.setScoreAccumulator(newScore);
+					} else {
+						newScore = wqt * pPosting.getWdt();
+						rankedDoc = new RankedDocument(pPosting.getDocumentId(), newScore);
+					}
+					rankedDocs.put(pPosting.getDocumentId(), rankedDoc);
+					// pPosting.setScoreAccumulator(pPosting.getScoreAccumulator()
+					// + (wqt * pPosting.getWdt()));
+				}
+			}
+		}
+
 		// Sort the ranked documents in the decreasing order
-		for (RankedDocuments rd : rankedDocs.values()) {
+		for (RankedDocument rd : rankedDocs.values()) {
+			// Divide Ad by Ld
+			rd.setScoreAccumulator(rd.getScoreAccumulator() / diskPositionalIndex.getDocWeight(rd.getDocumentId()));
 			pQueue.add(rd);
 		}
-		
+
 		// Return the top k documents;
+		k = Math.min(k, pQueue.size());
 		for (int i=0; i < k; i++) {
 			rankedDocumentsList.add(pQueue.poll());
 		}
@@ -143,38 +157,15 @@ public class QueryRunner {
 			List<Integer> docIds = new ArrayList<Integer>();
 			if (!queryLiteral.isPhrase()) {
 				String word = queryLiteral.getTokens().get(0);
-				String wordRegex = word.replace("*", ".*");
-				if (word.contains("*")) {
-					// use K-Gram Index and positional inverted index
-					if (word.charAt(0) != '*'){
-						word = '$' + word;
-					}
-					if (word.charAt(word.length() - 1) != '*'){
-						word = word + '$';
-					}
-					String[] sequences = word.split("\\*");
-					Set<String> candidates = new HashSet<String>();
-					for (String sequence : sequences) {
-						if (sequence.length() > 3) {
-							for (int i = 0; i < sequence.length() - 3; i++) {
-							    String substr = sequence.substring(i, i+3);
-							    for (String candidate : kGramIndex.get(substr)){
-							    	// do post filter
-							    	if (candidate.matches(wordRegex)) candidates.add(candidate);
-							    }
-							}
-						} else if (sequence.length() > 0) {
-							for (String candidate : kGramIndex.get(sequence)){
-						    	// do post filter
-						    	if (candidate.matches(wordRegex)) candidates.add(candidate);
-						    }
-						}
-					}
+				if (word.contains("*") && kGramIndex != null) {
+					// use K-Gram Index to find all candidates and use
+					// positional inverted index to get postings
+					Set<String> candidates = getKGramCandidates(word, kGramIndex);
 					// find positional postings of all candidates and OR the results
 					for (String candidate : candidates) {
 						List<Integer> candidateDocIds = new ArrayList<Integer>();
 						List<PositionalPosting> positionalPostings = invertedIndex.getPostings(PorterStemmer
-								.processToken(Utils.processWord(candidate, true)));
+								.processToken(candidate));
 						if (positionalPostings != null) {
 							for (PositionalPosting positionalPosting : positionalPostings) {
 								// add the docId in each posting to docIds
@@ -199,7 +190,7 @@ public class QueryRunner {
 			} else if (queryLiteral.isPhrase() && queryLiteral.getTokens().size() == 2) {
 				// use bi-word index for 2-word-phrases
 				List<Integer> postings = biWordIndex.getPostings(
-						PorterStemmer.processToken(queryLiteral.getTokens().get(0)) + PorterStemmer
+						PorterStemmer.processToken(queryLiteral.getTokens().get(0)) + " " + PorterStemmer
 								.processToken(queryLiteral.getTokens().get(1)));
 				if (postings != null) {
 					docIds.addAll(postings);
@@ -286,6 +277,36 @@ public class QueryRunner {
 		}
 
 		return results;
+	}
+
+	private static Set<String> getKGramCandidates(String word, KGramIndex kGramIndex) {
+		String wordRegex = word.replace("*", ".*");
+		
+		if (word.charAt(0) != '*'){
+			word = '$' + word;
+		}
+		if (word.charAt(word.length() - 1) != '*'){
+			word = word + '$';
+		}
+		String[] sequences = word.split("\\*");
+		Set<String> candidates = new HashSet<String>();
+		for (String sequence : sequences) {
+			if (sequence.length() > 3) {
+				for (int i = 0; i < sequence.length() - 3; i++) {
+				    String substr = sequence.substring(i, i+3);
+				    for (String candidate : kGramIndex.get(substr)){
+				    	// do post filter
+				    	if (candidate.matches(wordRegex)) candidates.add(Utils.processWord(candidate, true));
+				    }
+				}
+			} else if (sequence.length() > 0) {
+				for (String candidate : kGramIndex.get(sequence)){
+			    	// do post filter
+			    	if (candidate.matches(wordRegex)) candidates.add(Utils.processWord(candidate, true));
+			    }
+			}
+		}		
+		return candidates;
 	}
 
 	/**

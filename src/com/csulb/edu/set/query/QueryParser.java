@@ -32,7 +32,7 @@ public class QueryParser {
 	 * @return a List of Query objects
 	 * @throws InvalidQueryException
 	 */
-	public static List<Query> parseBooleanQuery(String queryInput) throws InvalidQueryException {
+	public static List<Query> parseQuery(String queryInput) throws InvalidQueryException {
 		
 		// throw exception if queries are invalid
 		if (!queryInput.matches(queries)) {
@@ -112,10 +112,5 @@ public class QueryParser {
 		}
 
 		return queryList;
-	}
-
-	public static List<Query> parseRankedQuery(String queryInput) {
-		
-		return null;
 	}
 }

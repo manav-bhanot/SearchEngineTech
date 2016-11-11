@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectInputStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,11 +14,8 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import com.csulb.edu.set.MainApp;
@@ -25,13 +23,15 @@ import com.csulb.edu.set.exception.InvalidQueryException;
 import com.csulb.edu.set.indexes.Index;
 import com.csulb.edu.set.indexes.TokenStream;
 import com.csulb.edu.set.indexes.biword.BiWordIndex;
+import com.csulb.edu.set.indexes.diskindex.DiskBiWordIndex;
+import com.csulb.edu.set.indexes.diskindex.DiskIndexEnum;
 import com.csulb.edu.set.indexes.diskindex.DiskIndexWriter;
-import com.csulb.edu.set.indexes.diskindex.DiskInvertedIndex;
+import com.csulb.edu.set.indexes.diskindex.DiskPositionalIndex;
 import com.csulb.edu.set.indexes.kgram.KGramIndex;
 import com.csulb.edu.set.indexes.pii.PositionalInvertedIndex;
 import com.csulb.edu.set.indexes.pii.PositionalPosting;
 import com.csulb.edu.set.query.QueryRunner;
-import com.csulb.edu.set.query.RankedDocuments;
+import com.csulb.edu.set.query.RankedDocument;
 import com.csulb.edu.set.ui.model.Document;
 import com.csulb.edu.set.utils.PorterStemmer;
 import com.csulb.edu.set.utils.Utils;
@@ -130,32 +130,21 @@ public class SearchOverviewController {
 	private boolean doBooleanQuery = true;
 
 	// Declare an object of PositionalInvertedIndex
-	private Index<PositionalPosting> pInvertedIndex;
+	private PositionalInvertedIndex pInvertedIndex;
 
 	// Declare an object of biWordIndex
-	private Index<Integer> biWordIndex;
+	private BiWordIndex biWordIndex;
 	
 	//Declare an object of KGramIndex
 	private KGramIndex kGramIndex;
 	
-	// Declare an object of Disk Inverted Index
-	// private Index<PositionalPosting> diskInvertedIndex;
-	
-	// Declare a reference of the parent class of all the indexes
-	private Index<PositionalPosting> invertedIndex;
-	
-	// Create a list of double value to store the document weights
-	private List<Double> docWeights;
-	
-	// Flag to choose from DiskInvertedIndex or InMemoryIndex
-	boolean useDiskIndex = true;
+	Index<PositionalPosting> diskInvertedIndex;
+	Index<Integer> diskBiWordIndex;
 	
 	private List<String> fileNames = new ArrayList<String>();
 
 	// Reference to the main application.
 	private MainApp mainApp;
-	
-	// 
 
 	/**
 	 * Is called by the main application to give a reference back to itself.
@@ -229,26 +218,32 @@ public class SearchOverviewController {
 					this.rankedDocumentsList.clear();
 					
 					/**
-					 * TODO
 					 * Checks if we already have a disk index created.
 					 * If yes then tell the user that a disk index was already created alongwith the timestamp
 					 * and ask him whether he wants to re-create a new index or proceed with the existing index.
 					 */
-					boolean isVocabFilePresent = false;
-					boolean isVocabTablePresent = false;
-					boolean isPostingsFilePresent = false;
-					
-					Path vocab = Paths.get(this.dirPath + "\\vocab.bin");
-					Path postings = Paths.get(this.dirPath + "\\postings.bin");
-					Path vocabTable = Paths.get(this.dirPath + "\\vocabTable.bin");
-					
-					if (vocab.toFile().exists() && !vocab.toFile().isDirectory() && postings.toFile().exists()
-							&& !postings.toFile().isDirectory() && vocabTable.toFile().exists()
-							&& !vocabTable.toFile().isDirectory()) {
+					Path positionalVocab = Paths.get(this.dirPath + "\\" + DiskIndexEnum.POSITIONAL_INDEX.getVocabFileName());
+					Path positionalPostings = Paths.get(this.dirPath + "\\" + DiskIndexEnum.POSITIONAL_INDEX.getPostingsFileName());
+					Path positionalVocabTable = Paths.get(this.dirPath + "\\" + DiskIndexEnum.POSITIONAL_INDEX.getVocabTableFileName());
+					Path biWordVocab = Paths.get(this.dirPath + "\\" + DiskIndexEnum.BI_WORD_INDEX.getVocabFileName());
+					Path biWordPostings = Paths.get(this.dirPath + "\\" + DiskIndexEnum.BI_WORD_INDEX.getPostingsFileName());
+					Path biWordVocabTable = Paths.get(this.dirPath + "\\" + DiskIndexEnum.BI_WORD_INDEX.getVocabTableFileName());
+					Path docWeights = Paths.get(this.dirPath + "\\docWeights.bin");
+					Path kGrams = Paths.get(this.dirPath + "\\kGrams.ser");
+
+					boolean createIndexes = true;
+					if (positionalVocab.toFile().exists() && !positionalVocab.toFile().isDirectory()
+							&& positionalPostings.toFile().exists() && !positionalPostings.toFile().isDirectory()
+							&& positionalVocabTable.toFile().exists() && !positionalVocabTable.toFile().isDirectory()
+							&& biWordVocab.toFile().exists() && !biWordVocab.toFile().isDirectory()
+							&& biWordPostings.toFile().exists() && !biWordPostings.toFile().isDirectory()
+							&& biWordVocabTable.toFile().exists() && !biWordVocabTable.toFile().isDirectory()
+							&& docWeights.toFile().exists() && !docWeights.toFile().isDirectory()
+							&& kGrams.toFile().exists() && !kGrams.toFile().isDirectory()) {
 						
 						BasicFileAttributes attributes = null;
 						try {
-							attributes = Files.readAttributes(postings, BasicFileAttributes.class);
+							attributes = Files.readAttributes(positionalVocab, BasicFileAttributes.class);
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
@@ -260,33 +255,102 @@ public class SearchOverviewController {
 								+ "update the existing disk index ? ", AlertType.CONFIRMATION);
 						Optional<ButtonType> isUserOk = confirmationBox.showAndWait();
 						
+						// Gets the user response about creating a new index and proceeds accordingly
 						if (isUserOk.get() == ButtonType.CANCEL) {
-							isVocabFilePresent = true;
-							isVocabTablePresent = true;
-							isPostingsFilePresent = true;
-						}					
-					} 
-					if (!isVocabFilePresent && !isPostingsFilePresent && !isVocabTablePresent) {
+							createIndexes = false;
+						}
+					}
+					if (createIndexes) {
 						// go ahead and create the new index
 						// Begin creating the index
 						createIndexes(this.dirPath);
-						this.numberOfDocsIndexed.setText("Total documents indexed = " + fileNames.size());
+						/*this.numberOfDocsIndexed.setText("Total documents indexed = " + fileNames.size());
 						// Displaying a message about the total number of words in the vocabulary
 						this.vocab.clear();
-						this.vocab.addAll(Arrays.asList(pInvertedIndex.getDictionary()));
-						this.corpusVocabSize.setText("Size of Corpus Vocabulary is : " + this.vocab.size());
+						this.vocab.addAll(Arrays.asList(this.pInvertedIndex.getDictionary()));
+						this.corpusVocabSize.setText("Size of Corpus Vocabulary is : " + this.vocab.size());*/
 					}
 					
 					// Show the search app window 
 					if (!this.mainApp.getPrimaryStage().isShowing()) {
 						this.mainApp.getPrimaryStage().show();
 					}
+					
+					// Initializing all the index objects for this session of user queries
+					// The in-memory index would have been already initialized if the user had chosen to create a new in memory index
+					
+					/*this.diskInvertedIndex = new DiskPositionalIndex(this.dirPath);
+					this.diskBiWordIndex = new DiskBiWordIndex(this.dirPath);*/
+					
+					// Initializing the kGram index
+					Platform.runLater(new Runnable() {
+						
+						@Override
+						public void run() {
+							diskInvertedIndex = new DiskPositionalIndex(dirPath);
+							diskBiWordIndex = new DiskBiWordIndex(dirPath);
+							if (kGramIndex == null) {
+								try {
+									ObjectInputStream kGramInputStream = new ObjectInputStream(
+											new FileInputStream(new File(dirPath, "kGrams.ser")));
+									kGramIndex = (KGramIndex) kGramInputStream.readObject();
+									kGramInputStream.close();
+								} catch (Exception e) {
+									e.printStackTrace();
+								}
+							}
+							vocab.clear();
+							vocab.addAll(((DiskPositionalIndex)diskInvertedIndex).getCorpusVocabularyFromDisk());
+							corpusVocabSize.setText("Size of Corpus Vocabulary is : " + vocab.size());
+						}
+					});
+					
+					/*new Thread() {
+						public void run() {
+							if (kGramIndex != null) {
+								try {
+									ObjectInputStream kGramInputStream = new ObjectInputStream(
+											new FileInputStream(new File(dirPath, "kGrams.ser")));
+									kGramIndex = (KGramIndex) kGramInputStream.readObject();
+									kGramInputStream.close();
+								} catch (Exception e) {
+									e.printStackTrace();
+								}
+							}
+							vocab.clear();
+							vocab.addAll(((DiskPositionalIndex)diskInvertedIndex).getCorpusVocabularyFromDisk());
+							corpusVocabSize.setText("Size of Corpus Vocabulary is : " + vocab.size());
+						}
+					}.start();*/
+					
+					/*if (kGramIndex != null) {
+						try {
+							ObjectInputStream kGramInputStream = new ObjectInputStream(
+									new FileInputStream(new File(dirPath, "kGrams.ser")));
+							kGramIndex = (KGramIndex) kGramInputStream.readObject();
+							kGramInputStream.close();
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					}
+					
+					// Displaying a message about the total number of words in the vocabulary
+					this.vocab.clear();
+					this.vocab.addAll(((DiskPositionalIndex)this.diskInvertedIndex).getCorpusVocabularyFromDisk());					
+					this.corpusVocabSize.setText("Size of Corpus Vocabulary is : " + this.vocab.size());*/
+					
+					// Initializing the fileNames array
+					if (this.fileNames != null && this.fileNames.isEmpty()) {
+						this.fileNames = Utils.readFileNames(this.dirPath);
+					}
+					this.numberOfDocsIndexed.setText("Size of the corpus = " + this.fileNames.size());
 				} else {
 					Alert invalidDirectoryPathAlert = showAlertBox("Invalid Directory path! Please enter a valid directory", AlertType.ERROR);
 					invalidDirectoryPathAlert.showAndWait();
 				}
 			});
 		}
+		System.out.println("Index Creation completed");
 		this.isValidDirectory = false;
 	}
 
@@ -309,32 +373,21 @@ public class SearchOverviewController {
 			
 			// Checks if for the current query we already fetched the results
 			// then just display the corresponding table
-			if (this.userQuery.getText() != null && !this.userQuery.getText().isEmpty()) {
+			/*if (this.userQuery.getText() != null && !this.userQuery.getText().isEmpty()) {
 				this.searchCorpus();
 			}
 			
 			this.retrievedRankedDocumentsTable.setVisible(false);
-			this.listView.setVisible(true);			
+			this.listView.setVisible(true);	*/		
 		} else {
 			this.doBooleanQuery = false;
 			
 			// Checks if for the current query we already fetched the results
 			// then just display the corresponding table
-			if (this.userQuery.getText() != null && !this.userQuery.getText().isEmpty()) {
-				// call the query api to fetch the results
-				this.searchCorpus();
-			}
-			
-			this.retrievedRankedDocumentsTable.setVisible(true);
-			this.listView.setVisible(false);
+			/**/
 		}
 	}
-
-	@FXML
-	private void indexNewDirectory() {
-		promptUserForDirectoryToIndex();
-	}
-
+	
 	/**
 	 * Called when the user clicks on the search button.
 	 */
@@ -370,63 +423,75 @@ public class SearchOverviewController {
 			// store it
 			// in documentsList variable
 			System.out.println("Searching for " + queryString);
-			
-			this.invertedIndex = new DiskInvertedIndex(this.dirPath);
-			
-			/**
-			 * TO-DO
-			 * Move the biword index on disk and run phrase boolean queries from the biword index
-			 * Currently I am just initializing the biwordIndex object so that the next if check returns true
-			 */
-			this.biWordIndex = new BiWordIndex();
 
-			if (this.invertedIndex != null && this.biWordIndex != null) {
-				if (!documents.isEmpty())
-					documents.clear();
+			if (this.diskInvertedIndex != null && this.diskBiWordIndex != null) {				
+				
+				// Clearing the old json document contents viewed by the user in the window
+				jsonBodyContents.clear();
+				
 				try {
 					List<Integer> docIds = null;
-					List<RankedDocuments> rankedDocuments = null;
+					List<RankedDocument> rankedDocuments = null;
 					
 					// Check if boolean query has to be performed or ranked query has to be performed
 					if (doBooleanQuery) {
-						docIds = QueryRunner.runBooleanQueries(queryString, invertedIndex, biWordIndex, kGramIndex);
+						
+						// Clearing the previous search results
+						documents.clear();
+							
+						// Display the listview and hides the rankedDocumentsTableView
+						this.listView.setVisible(true);
+						this.retrievedRankedDocumentsTable.setVisible(false);
+						
+						docIds = QueryRunner.runBooleanQueries(queryString, this.diskInvertedIndex, this.diskBiWordIndex, this.kGramIndex);
 						// Show an info box saying no results found
 						if (docIds.isEmpty()) {
 							showAlertBox("Sorry. Your search results does not fetch any documents from the corpus", AlertType.INFORMATION);
 						}
 						
 						for (int docId : docIds) {
-							documents.add(fileNames.get(docId));
-							//System.out.println(fileNames.get(docId));
+							documents.add(this.fileNames.get(docId));
 						}
+						
+						this.listView.setItems(documents);
+						this.listView.scrollTo(0);
+						
+						numberOfDocsMatchingQuery.setText("Total documents found for this query = "+ docIds.size());
 					} else {
-						rankedDocuments = QueryRunner.runRankedQueries(queryString, invertedIndex, biWordIndex, kGramIndex);
+						
+						// Clearing the results of previously fetched ranked query
+						this.rankedDocumentsList.clear();
+						
+						// Display the rankedDocumentsTableView and hides the listView
+						this.listView.setVisible(false);
+						this.retrievedRankedDocumentsTable.setVisible(true);
+						rankedDocuments = QueryRunner.runRankedQueries(queryString, this.diskInvertedIndex, this.kGramIndex, fileNames.size());
 						// Show an info box saying no results found
 						if (rankedDocuments.isEmpty()) {
 							showAlertBox("Sorry. Your search results does not fetch any documents from the corpus", AlertType.INFORMATION);
 						}
 						
-						/*for (int docId : docIds) {
-							documents.add(fileNames.get(docId));
-							//System.out.println(fileNames.get(docId));
-						}*/
-					}
-										
-					numberOfDocsMatchingQuery.setText("Total documents found for this query = "+docIds.size());
-					if (!this.numberOfDocsMatchingQuery.isVisible()) this.numberOfDocsMatchingQuery.setVisible(true);
-					
+						for (RankedDocument rd : rankedDocuments) {
+							Document doc = new Document(this.fileNames.get(rd.getDocumentId()), rd.getScoreAccumulator());
+							rankedDocumentsList.add(doc);
+						}
+						this.retrievedRankedDocumentsTable.setItems(rankedDocumentsList);
+						this.retrievedRankedDocumentsTable.scrollTo(0);
+						
+						numberOfDocsMatchingQuery.setText("Total documents found for this query = "+ rankedDocumentsList.size());
+					}		
+					if (!this.numberOfDocsMatchingQuery.isVisible()) 
+						this.numberOfDocsMatchingQuery.setVisible(true);					
 					
 				} catch (InvalidQueryException e) {
 					// Show an Error Alert box saying the Query is invalid
 					showAlertBox("Invalid Query Format. Kindly re enter the query", AlertType.ERROR);
-				}
-				listView.setItems(documents);
-				listView.scrollTo(0);
+				}				
 			} else {
 				/**
 				 * TODO
 				 * 
-				 * The invertedIndex or biwordIndex could probably be null because the user choose to query the corpus 
+				 * The pInvertedIndex or biwordIndex could probably be null because the user choose to query the corpus 
 				 * with the disk index and hence the applcation never creates an in-memory index
 				 */
 			}
@@ -439,6 +504,10 @@ public class SearchOverviewController {
 	 */
 	@FXML
 	private void printVocabulary() {
+		
+		this.retrievedRankedDocumentsTable.setVisible(false);
+		this.listView.setVisible(true);
+		
 		// Prints all the terms in the dictionary of corpus
 		this.numberOfDocsMatchingQuery.setText("");
 		listView.setItems(vocab);
@@ -450,7 +519,7 @@ public class SearchOverviewController {
 	 */
 	@FXML
 	private void findStem() {
-		System.out.println("Findnig the stem");
+		System.out.println("Finding the stem");
 
 		// Fetch the word entered by the user in the textbox
 		String word = userQuery.getText();
@@ -479,11 +548,11 @@ public class SearchOverviewController {
 	 * Saving the In-Memory index on disk
 	 */
 	private void saveIndexesOnDisk() {
-		// TODO Auto-generated method stub
 		
 		// Persist the PositionalInvertedIndex on disk
-		DiskIndexWriter.buildIndexForDirectory(this.dirPath, this.pInvertedIndex);
+		DiskIndexWriter.buildPositionalIndexOnDisk(this.dirPath, this.pInvertedIndex, this.fileNames.size());
 		DiskIndexWriter.storeKGramIndexOnDisk(this.dirPath, this.kGramIndex);
+		DiskIndexWriter.storeBiWordIndexOnDisk(this.dirPath, this.biWordIndex, this.fileNames.size());
 	}
 
 	/**
@@ -523,14 +592,8 @@ public class SearchOverviewController {
 				}
 
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-					// only process .json files
-					//System.out.println(file.toString());
+
 					if (file.toString().endsWith(".json")) {
-						// we have found a .json file; add its name to the fileName
-						// list,
-						// then index the file and increase the document ID counter.
-						// System.out.println("Indexing file " +
-						// file.getFileName());
 
 						fileNames.add(file.getFileName().toString());
 
@@ -541,9 +604,6 @@ public class SearchOverviewController {
 						} catch (FileNotFoundException e) {
 							e.printStackTrace();
 						}
-						
-						// Create a hashmap to count term frequency
-						Map<String, Integer> termFreq = new HashMap<String, Integer>();
 						
 						TokenStream tokenStream = Utils.getTokenStreams(in);
 						
@@ -560,36 +620,21 @@ public class SearchOverviewController {
 							// Then index the terms = # of hyphens + 1
 							if (token.contains("-")) {
 								for (String term : token.split("-")) {
-									((PositionalInvertedIndex)pInvertedIndex).addTerm(PorterStemmer.processToken(Utils.processWord(term, false)), position, mDocumentID);
+									pInvertedIndex.addTerm(PorterStemmer.processToken(Utils.processWord(term, false)), position, mDocumentID);
 									position++;
 								}
 								position--;
 							}
-							((PositionalInvertedIndex)pInvertedIndex).addTerm(PorterStemmer.processToken(Utils.removeHyphens(token)), position,
+							pInvertedIndex.addTerm(PorterStemmer.processToken(Utils.removeHyphens(token)), position,
 									mDocumentID);
 							if (prevToken != null) {
-								((BiWordIndex)biWordIndex).addTerm(PorterStemmer.processToken(Utils.removeHyphens(prevToken))
-										+ PorterStemmer.processToken(Utils.removeHyphens(token)), mDocumentID);
+								biWordIndex.addTerm(PorterStemmer.processToken(Utils.removeHyphens(prevToken))
+										+ " " + PorterStemmer.processToken(Utils.removeHyphens(token)), mDocumentID);
 							}
-							
-							// Add to the termFrequency
-							/*if (termFreq.containsKey(PorterStemmer.processToken(token))) {
-								//int freq = termFreq.get(PorterStemmer.processToken(token)) + 1;
-								termFreq.put(PorterStemmer.processToken(token), termFreq.get(PorterStemmer.processToken(token)) + 1);
-							} else {
-								termFreq.put(PorterStemmer.processToken(token), 1);
-							}		*/					
+		
 							prevToken = token;
 							position++;
 						}
-						
-						// Calculate Ld for this document and store it in the docWeights arraylist
-						/*double sum = 0;
-						for (Integer tf : termFreq.values()) {
-							double wt = 1 + Math.log10(tf);							
-							sum = sum + Math.pow(wt, 2);
-						}						
-						docWeights.add(Math.sqrt(sum));*/						
 						mDocumentID++;
 					}
 					return FileVisitResult.CONTINUE;
@@ -617,17 +662,13 @@ public class SearchOverviewController {
 	 */
 	@FXML
 	private void initialize() {
-		
-		// Initialize the person table with the two columns.
+
+		// Initialize the ranked documents table with the two columns.
 		documentNameColumn.setCellValueFactory(cellData -> cellData.getValue().documentNameProperty());
 		documentScoreColumn.setCellValueFactory(cellData -> cellData.getValue().documentScoreProperty().asString());
-
-		// Clear person details.
-		// showPersonDetails(null);
-
-		// Listen for selection changes and show the person details when
-		// changed.
-		retrievedRankedDocumentsTable.addEventFilter(MouseEvent.MOUSE_CLICKED, event -> {
+		
+		// Listen to the selection changes and show the relevant documents contents
+		/*retrievedRankedDocumentsTable.addEventFilter(MouseEvent.MOUSE_CLICKED, event -> {
 			if (event.getClickCount() == 2) {
 				SelectionModel<Document> selectionModel = retrievedRankedDocumentsTable.getSelectionModel();
 				Document docSelected = selectionModel.getSelectedItem();
@@ -635,10 +676,15 @@ public class SearchOverviewController {
 					this.jsonBodyContents.setText(Utils.getDocumentText(dirPath + "\\" + docSelected.getDocumentName()));
 				}
 			}
-		});
+		});*/
 		
-		/*retrievedRankedDocumentsTable.getSelectionModel().selectedItemProperty()
-				.addListener((observable, oldValue, newValue) -> displayDocumentContents(newValue));*/
+		retrievedRankedDocumentsTable.getSelectionModel().selectedItemProperty()
+				.addListener((observable, oldValue, newValue) -> {
+					if (newValue != null && newValue.getDocumentName().contains("json")) {
+						this.jsonBodyContents
+								.setText(Utils.getDocumentText(dirPath + "\\" + newValue.getDocumentName()));
+					}
+				});
 
 		// Attach an event listener to the list items which handles the click on the list items that contains the document names 
 		// as part of the search query result
@@ -653,12 +699,18 @@ public class SearchOverviewController {
 		});
 
 	}
+	
+	@FXML
+	private void indexNewDirectory() {
+		promptUserForDirectoryToIndex();
+	}
 
 	/**
 	 * The constructor. The constructor is called before the initialize()
 	 * method.
 	 */
 	public SearchOverviewController() {
+		retrievedRankedDocumentsTable = new TableView<Document>();
 		rankedDocumentsList = FXCollections.observableArrayList();
 		documents = FXCollections.observableArrayList();
 		listView = new ListView<String>();

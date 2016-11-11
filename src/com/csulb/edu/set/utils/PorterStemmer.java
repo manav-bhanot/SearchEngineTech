@@ -158,7 +158,7 @@ public class PorterStemmer {
 
 		if (token.endsWith("ll")) {
 			String stem = token.substring(0, token.length() - 2);
-			if (mGr1.matcher(token).matches()) { // use token not stem here
+			if (mGr1.matcher(stem).matches()) { // use token not stem here
 				token = token.substring(0, token.length() - 1);
 			}
 		}
@@ -178,17 +178,5 @@ public class PorterStemmer {
 		}
 
 		return token;
-	}
-
-	public static void main(String[] args) {
-		// System.out.println(mGr1);
-		String[] strings = { "cats", "feed", "agreed", "plastered", "bled", "motoring", "sing", "conflated", "troubled",
-				"sized", "hopping", "tanned", "falling", "hissing", "hizzed", "failing", "filing", "happy", "sky",
-				"probate", "rate", "cease", "controll", "roll", "activate", "replicate", "rational", "organization",
-				"organize", "organizer", "really", "reed", "red", "argument" };
-		for (String string : strings) {
-			System.out.println(PorterStemmer.processToken(string));
-		}
-
 	}
 }
