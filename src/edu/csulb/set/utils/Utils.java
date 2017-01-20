@@ -1,7 +1,9 @@
 package edu.csulb.set.utils;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -13,6 +15,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 
 import com.google.gson.JsonIOException;
 import com.google.gson.JsonParser;
@@ -70,6 +73,10 @@ public class Utils {
 	public static TokenStream getTokenStreams(InputStream jsonFile) {
 		JsonReader reader = new JsonReader(new InputStreamReader(jsonFile));
 		return new SimpleTokenStream(jsonParser.parse(reader).getAsJsonObject().get("body").getAsString());		
+	}
+	
+	public static TokenStream getTokenStreams(File fileToOpen) throws FileNotFoundException {
+		return new SimpleTokenStream(fileToOpen);
 	}
 	
 
